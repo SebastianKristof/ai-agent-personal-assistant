@@ -175,22 +175,11 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://localhost:8080/webhook/idea-handler",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "task_data",
-              "value": "={{ $json }}"
-            }
-          ]
-        },
-        "options": {}
+        "workflowId": "4"
       },
       "name": "Handle Idea",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
       "position": [
         1340,
         100
@@ -263,27 +252,6 @@
       "position": [
         1340,
         460
-      ]
-    },
-    {
-      "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
-            {
-              "name": "response",
-              "value": "=I've saved your idea: \"{{ $json.content }}\".\n\nI've added some tags: {{ $json.tags.join(', ') }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "Format Idea Response",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
-      "position": [
-        1580,
-        100
       ]
     }
   ],
@@ -388,17 +356,6 @@
       ]
     },
     "Handle Idea": {
-      "main": [
-        [
-          {
-            "node": "Format Idea Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Idea Response": {
       "main": [
         [
           {

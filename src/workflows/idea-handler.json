@@ -1,0 +1,245 @@
+{
+  "name": "Idea Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook/idea-handler",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "idea-handler"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract task data from the webhook payload\nconst taskData = $input.item.json.task_data;\n\nif (!taskData) {\n  throw new Error('Missing task_data in webhook payload');\n}\n\n// Extract content from the task data\nlet content = taskData.content || '';\nif (!content && taskData.original_message) {\n  content = taskData.original_message;\n}\n\n// Generate tags if not provided\nlet tags = taskData.tags || [];\nif (tags.length === 0 && taskData.category) {\n  tags.push(taskData.category);\n}\n\n// Generate a unique ID for the idea\nconst timestamp = Math.floor(Date.now() / 1000);\nconst id = `idea_${timestamp}`;\n\n// Create the idea object\nconst idea = {\n  id,\n  content,\n  tags,\n  timestamp: new Date().toISOString(),\n  source: 'telegram',\n  user_id: taskData.user_id || '',\n  username: taskData.username || '',\n  original_message: taskData.original_message || ''\n};\n\n// Add any additional fields from the task data\nfor (const [key, value] of Object.entries(taskData)) {\n  if (!(key in idea) && !['task_type', 'task_data'].includes(key)) {\n    idea[key] = value;\n  }\n}\n\nreturn { json: idea };"
+      },
+      "name": "Process Idea Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "collection": "ideas",
+        "options": {}
+      },
+      "name": "Save to MongoDB",
+      "type": "n8n-nodes-base.mongodb",
+      "typeVersion": 1,
+      "position": [
+        740,
+        300
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "1",
+          "name": "MongoDB Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "name": "tags",
+              "value": "={{ $json.tags }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "response",
+              "value": "=I've saved your idea: \"{{ $json.content }}\"\n\n{% if $json.tags.length > 0 %}I've tagged it with: {{ $json.tags.join(', ') }}{% endif %}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.should_notify }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        940,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.user_id }}",
+        "text": "=Your idea \"{{ $json.content }}\" has been saved with ID: {{ $json.id }}",
+        "additionalFields": {}
+      },
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        460
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log the saved idea\nconsole.log(`Saved idea: ${$input.item.json.id}`);\n\n// Add a flag to determine if notification should be sent\n// This is just an example - you can customize this logic\nconst shouldNotify = false; // Set to true if you want to send notifications\n\nreturn {\n  json: {\n    ...$input.item.json,\n    should_notify: shouldNotify\n  }\n};"
+      },
+      "name": "Post-Processing",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        740,
+        460
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Idea Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Idea Data": {
+      "main": [
+        [
+          {
+            "node": "Save to MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post-Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Processing": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "4",
+  "meta": {
+    "instanceId": "1"
+  },
+  "tags": [
+    {
+      "name": "handler",
+      "color": "#00bb9c"
+    },
+    {
+      "name": "idea",
+      "color": "#ff6d33"
+    }
+  ]
+} 
