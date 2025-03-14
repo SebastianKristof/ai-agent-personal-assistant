@@ -7,12 +7,37 @@
 N8N_URL="http://localhost:5678"
 WORKFLOWS_DIR="$(dirname "$(dirname "$(realpath "$0")")")/workflows"
 API_KEY="${N8N_API_KEY:-your-api-key}" # Use environment variable or default
+AUTO_CONFIRM=false
 
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Parse command line arguments
+parse_args() {
+  while [[ "$#" -gt 0 ]]; do
+    case $1 in
+      -y|--yes) AUTO_CONFIRM=true ;;
+      -h|--help) show_help; exit 0 ;;
+      *) echo "Unknown parameter: $1"; show_help; exit 1 ;;
+    esac
+    shift
+  done
+}
+
+# Show help
+show_help() {
+  echo "Usage: $0 [options]"
+  echo ""
+  echo "Options:"
+  echo "  -y, --yes    Automatically confirm overwriting workflows"
+  echo "  -h, --help   Show this help message"
+  echo ""
+  echo "Environment variables:"
+  echo "  N8N_API_KEY  API key for n8n (optional)"
+}
 
 # Function to check dependencies
 check_dependencies() {
@@ -48,6 +73,25 @@ check_n8n_running() {
     echo -e "${RED}n8n is not running. Please start n8n first.${NC}"
     echo -e "${YELLOW}You can start n8n with: n8n start${NC}"
     echo -e "${YELLOW}Consider using: N8N_RUNNERS_ENABLED=true n8n start${NC}"
+    return 1
+  fi
+}
+
+# Function to get confirmation
+get_confirmation() {
+  if [ "$AUTO_CONFIRM" = true ]; then
+    echo -e "${YELLOW}Auto-confirming deployment (--yes flag provided)${NC}"
+    return 0
+  fi
+  
+  echo -e "${YELLOW}WARNING: This will overwrite any existing workflows with the same IDs in n8n.${NC}"
+  echo -e "${YELLOW}Do you want to continue? (y/N)${NC}"
+  
+  read -r response
+  if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    return 0
+  else
+    echo -e "${YELLOW}Deployment cancelled.${NC}"
     return 1
   fi
 }
@@ -97,6 +141,9 @@ activate_workflow() {
 main() {
   echo -e "${GREEN}=== n8n Workflow Deployment Script ===${NC}"
   
+  # Parse command line arguments
+  parse_args "$@"
+  
   # Check dependencies
   check_dependencies || exit 1
   
@@ -116,6 +163,9 @@ main() {
   workflow_count=$(echo "$workflow_files" | wc -l)
   
   echo -e "${GREEN}Found $workflow_count workflow files to import.${NC}"
+  
+  # Get confirmation before proceeding
+  get_confirmation || exit 0
   
   # Import each workflow
   success_count=0
@@ -145,5 +195,5 @@ main() {
   fi
 }
 
-# Execute the main function
-main 
+# Execute the main function with all arguments
+main "$@" 

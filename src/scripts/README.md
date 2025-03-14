@@ -69,9 +69,10 @@ This script automates the deployment of all workflow JSON files to your n8n inst
 1. Check if required dependencies are installed
 2. Check if n8n is running
 3. Find all workflow JSON files in the `src/workflows` directory
-4. Import each workflow, overwriting any existing workflows with the same ID
-5. Activate workflows that are marked as active in their JSON definition
-6. Provide a summary of the deployment
+4. Ask for confirmation before overwriting existing workflows (unless `-y` flag is used)
+5. Import each workflow, overwriting any existing workflows with the same ID
+6. Activate workflows that are marked as active in their JSON definition
+7. Provide a summary of the deployment
 
 ### Prerequisites
 
@@ -86,9 +87,17 @@ This script automates the deployment of all workflow JSON files to your n8n inst
 # Set your n8n API key (optional, can also be hardcoded in the script)
 export N8N_API_KEY="your-api-key"
 
-# Run the deployment script
+# Run the deployment script with confirmation prompt
 ./src/scripts/deploy_workflows.sh
+
+# Run the deployment script with automatic confirmation (useful for CI/CD)
+./src/scripts/deploy_workflows.sh -y
 ```
+
+### Command Line Options
+
+- `-y, --yes`: Automatically confirm overwriting workflows without prompting
+- `-h, --help`: Show help message
 
 ### Configuration
 
@@ -128,10 +137,11 @@ The script will:
 
 1. Check if required dependencies are installed
 2. Check if n8n is running
-3. Backup existing workflow files to a timestamped directory
-4. Fetch all workflows from your n8n instance
-5. Export each workflow to a JSON file in the `src/workflows` directory
-6. Provide a summary of the export
+3. Ask for confirmation before overwriting existing workflow files (unless `-y` flag is used)
+4. Backup existing workflow files to a timestamped directory
+5. Fetch all workflows from your n8n instance
+6. Export each workflow to a JSON file in the `src/workflows` directory
+7. Provide a summary of the export
 
 ### Prerequisites
 
@@ -145,9 +155,17 @@ The script will:
 # Set your n8n API key (optional, can also be hardcoded in the script)
 export N8N_API_KEY="your-api-key"
 
-# Run the export script
+# Run the export script with confirmation prompt
 ./src/scripts/export_workflows.sh
+
+# Run the export script with automatic confirmation (useful for CI/CD)
+./src/scripts/export_workflows.sh -y
 ```
+
+### Command Line Options
+
+- `-y, --yes`: Automatically confirm overwriting workflow files without prompting
+- `-h, --help`: Show help message
 
 ### Configuration
 
@@ -176,6 +194,15 @@ A typical development workflow using these scripts:
 3. Run `export_workflows.sh` to export the changes to JSON files
 4. Commit the changes to version control
 5. On other environments, run `deploy_workflows.sh` to deploy the changes
+
+## Automation
+
+For CI/CD pipelines or automated deployments, use the `-y` flag to skip confirmation prompts:
+
+```bash
+# In a CI/CD pipeline
+./src/scripts/deploy_workflows.sh -y
+```
 
 ## Other Scripts
 
