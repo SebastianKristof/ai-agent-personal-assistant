@@ -105,9 +105,9 @@ import_workflow() {
   
   echo -e "${YELLOW}Importing workflow: ${workflow_name} (ID: ${workflow_id})${NC}"
   
-  # Use the n8n CLI to import the workflow
-  n8n import:workflow --file="$file" --id="$workflow_id" --skipOwnershipCheck
-  
+  # Use the n8n CLI to import the workflow - updated syntax
+  n8n import:workflow --input="${file}" --separate
+
   if [ $? -eq 0 ]; then
     echo -e "${GREEN}Successfully imported workflow: ${workflow_name}${NC}"
     return 0

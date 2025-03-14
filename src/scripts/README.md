@@ -70,7 +70,7 @@ This script automates the deployment of all workflow JSON files to your n8n inst
 2. Check if n8n is running
 3. Find all workflow JSON files in the `src/workflows` directory
 4. Ask for confirmation before overwriting existing workflows (unless `-y` flag is used)
-5. Import each workflow, overwriting any existing workflows with the same ID
+5. Import each workflow using the n8n CLI
 6. Activate workflows that are marked as active in their JSON definition
 7. Provide a summary of the deployment
 
@@ -115,6 +115,15 @@ For the script to work properly, each workflow JSON file should:
 2. Have a `name` field
 3. Have an `active` field set to `true` or `false`
 
+### Note on n8n CLI Commands
+
+The script uses the current n8n CLI syntax:
+```bash
+n8n import:workflow --input="path/to/workflow.json" --separate
+```
+
+If you encounter errors, make sure your n8n CLI version is up to date.
+
 ### Troubleshooting
 
 If you encounter issues:
@@ -123,6 +132,7 @@ If you encounter issues:
 2. Verify that your workflow JSON files are valid
 3. Check that you have the correct API key set
 4. Ensure you have the necessary permissions to import and activate workflows
+5. Verify your n8n CLI version with `n8n --version`
 
 ## export_workflows.sh
 
