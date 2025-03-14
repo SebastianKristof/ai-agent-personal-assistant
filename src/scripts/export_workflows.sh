@@ -15,15 +15,51 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Function to check dependencies
+check_dependencies() {
+  echo -e "${YELLOW}Checking dependencies...${NC}"
+  
+  # Check for jq
+  if ! command -v jq &> /dev/null; then
+    echo -e "${RED}Error: jq is not installed.${NC}"
+    echo -e "${YELLOW}Please install jq:${NC}"
+    echo -e "  - On macOS: brew install jq"
+    echo -e "  - On Ubuntu/Debian: sudo apt-get install jq"
+    echo -e "  - On CentOS/RHEL: sudo yum install jq"
+    echo -e "  - On Windows with Chocolatey: choco install jq"
+    return 1
+  fi
+  
+  # Check for curl
+  if ! command -v curl &> /dev/null; then
+    echo -e "${RED}Error: curl is not installed.${NC}"
+    echo -e "${YELLOW}Please install curl:${NC}"
+    echo -e "  - On macOS: brew install curl"
+    echo -e "  - On Ubuntu/Debian: sudo apt-get install curl"
+    echo -e "  - On CentOS/RHEL: sudo yum install curl"
+    echo -e "  - On Windows with Chocolatey: choco install curl"
+    return 1
+  fi
+  
+  echo -e "${GREEN}All dependencies are installed.${NC}"
+  return 0
+}
+
 # Function to check if n8n is running
 check_n8n_running() {
   echo -e "${YELLOW}Checking if n8n is running...${NC}"
   if curl -s "$N8N_URL/healthz" > /dev/null; then
     echo -e "${GREEN}n8n is running.${NC}"
+    
+    # Remind about task runners
+    echo -e "${YELLOW}Note: n8n recommends enabling task runners with N8N_RUNNERS_ENABLED=true${NC}"
+    echo -e "${YELLOW}Learn more: https://docs.n8n.io/hosting/configuration/task-runners/${NC}"
+    
     return 0
   else
     echo -e "${RED}n8n is not running. Please start n8n first.${NC}"
     echo -e "${YELLOW}You can start n8n with: n8n start${NC}"
+    echo -e "${YELLOW}Consider using: N8N_RUNNERS_ENABLED=true n8n start${NC}"
     return 1
   fi
 }
@@ -118,6 +154,9 @@ sanitize_filename() {
 # Main script execution
 main() {
   echo -e "${GREEN}=== n8n Workflow Export Script ===${NC}"
+  
+  # Check dependencies
+  check_dependencies || exit 1
   
   # Check if n8n is running
   check_n8n_running || exit 1

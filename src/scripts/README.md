@@ -13,21 +13,65 @@ These scripts help with:
 
 ## Available Scripts
 
-*No scripts available yet. This section will be updated as scripts are developed.*
-
-# n8n Workflow Deployment Scripts
+# n8n Workflow Management Scripts
 
 This directory contains scripts for managing and deploying n8n workflows.
+
+## Dependencies
+
+These scripts require the following dependencies:
+
+- **jq**: A lightweight and flexible command-line JSON processor
+  - Install on macOS: `brew install jq`
+  - Install on Ubuntu/Debian: `sudo apt-get install jq`
+  - Install on CentOS/RHEL: `sudo yum install jq`
+  - Install on Windows with Chocolatey: `choco install jq`
+
+- **curl**: A command-line tool for transferring data with URLs
+  - Install on macOS: `brew install curl`
+  - Install on Ubuntu/Debian: `sudo apt-get install curl`
+  - Install on CentOS/RHEL: `sudo yum install curl`
+  - Install on Windows with Chocolatey: `choco install curl`
+
+- **n8n**: The workflow automation tool
+  - Install globally: `npm install n8n -g`
+
+## n8n Task Runners
+
+n8n recommends enabling task runners for better performance and reliability. When starting n8n, use:
+
+```bash
+N8N_RUNNERS_ENABLED=true n8n start
+```
+
+Learn more about task runners in the [n8n documentation](https://docs.n8n.io/hosting/configuration/task-runners/).
+
+## start_n8n.sh
+
+This script starts n8n with the recommended settings, including task runners enabled. It will:
+
+1. Check if n8n is installed
+2. Check if n8n is already running
+3. Start n8n with task runners enabled
+4. Verify that n8n started successfully
+
+### Usage
+
+```bash
+# Start n8n with recommended settings
+./src/scripts/start_n8n.sh
+```
 
 ## deploy_workflows.sh
 
 This script automates the deployment of all workflow JSON files to your n8n instance. It will:
 
-1. Check if n8n is running
-2. Find all workflow JSON files in the `src/workflows` directory
-3. Import each workflow, overwriting any existing workflows with the same ID
-4. Activate workflows that are marked as active in their JSON definition
-5. Provide a summary of the deployment
+1. Check if required dependencies are installed
+2. Check if n8n is running
+3. Find all workflow JSON files in the `src/workflows` directory
+4. Import each workflow, overwriting any existing workflows with the same ID
+5. Activate workflows that are marked as active in their JSON definition
+6. Provide a summary of the deployment
 
 ### Prerequisites
 
@@ -82,11 +126,12 @@ This script exports all workflows from your n8n instance to JSON files. It's use
 
 The script will:
 
-1. Check if n8n is running
-2. Backup existing workflow files to a timestamped directory
-3. Fetch all workflows from your n8n instance
-4. Export each workflow to a JSON file in the `src/workflows` directory
-5. Provide a summary of the export
+1. Check if required dependencies are installed
+2. Check if n8n is running
+3. Backup existing workflow files to a timestamped directory
+4. Fetch all workflows from your n8n instance
+5. Export each workflow to a JSON file in the `src/workflows` directory
+6. Provide a summary of the export
 
 ### Prerequisites
 
@@ -126,10 +171,11 @@ If you encounter issues:
 
 A typical development workflow using these scripts:
 
-1. Make changes to workflows in the n8n UI
-2. Run `export_workflows.sh` to export the changes to JSON files
-3. Commit the changes to version control
-4. On other environments, run `deploy_workflows.sh` to deploy the changes
+1. Start n8n with `start_n8n.sh`
+2. Make changes to workflows in the n8n UI
+3. Run `export_workflows.sh` to export the changes to JSON files
+4. Commit the changes to version control
+5. On other environments, run `deploy_workflows.sh` to deploy the changes
 
 ## Other Scripts
 
