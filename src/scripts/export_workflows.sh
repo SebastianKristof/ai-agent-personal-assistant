@@ -126,6 +126,19 @@ get_all_workflows() {
     return 1
   fi
   
+  # Check for authentication error
+  if [[ "$response" == *"\"status\":\"error\""* ]] && [[ "$response" == *"\"message\":\"Unauthorized\""* ]]; then
+    echo -e "${RED}Authentication error: Unauthorized access to n8n API${NC}"
+    echo -e "${YELLOW}Please create an API key in n8n:${NC}"
+    echo -e "  1. Open n8n interface (${N8N_URL})"
+    echo -e "  2. Go to Settings → API"
+    echo -e "  3. Create a new API key"
+    echo -e "  4. Run this script with the API key in the environment variable:${NC}"
+    echo -e "     export N8N_API_KEY=\"your-api-key\""
+    echo -e "     $0"
+    return 1
+  fi
+  
   # Check if the response contains workflows
   local workflow_count=$(echo "$response" | jq '.data | length')
   if [ "$workflow_count" -eq 0 ]; then
@@ -149,6 +162,19 @@ export_workflow() {
   # Get the workflow data
   local workflow_data=$(curl -s -X GET "$N8N_URL/rest/workflows/$workflow_id" \
     -H "X-N8N-API-KEY: $API_KEY")
+  
+  # Check for authentication error
+  if [[ "$workflow_data" == *"\"status\":\"error\""* ]] && [[ "$workflow_data" == *"\"message\":\"Unauthorized\""* ]]; then
+    echo -e "${RED}Authentication error: Unauthorized access to n8n API${NC}"
+    echo -e "${YELLOW}Please create an API key in n8n:${NC}"
+    echo -e "  1. Open n8n interface (${N8N_URL})"
+    echo -e "  2. Go to Settings → API"
+    echo -e "  3. Create a new API key"
+    echo -e "  4. Run this script with the API key in the environment variable:${NC}"
+    echo -e "     export N8N_API_KEY=\"your-api-key\""
+    echo -e "     $0"
+    return 1
+  fi
   
   if [ $? -ne 0 ]; then
     echo -e "${RED}Failed to fetch workflow data for: ${workflow_name}${NC}"

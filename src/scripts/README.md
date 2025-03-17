@@ -70,13 +70,12 @@ This script automates the deployment of all workflow JSON files to your n8n inst
 2. Check if n8n is running
 3. Find all workflow JSON files in the `src/workflows` directory
 4. Ask for confirmation before overwriting existing workflows (unless `-y` flag is used)
-5. Import each workflow using the n8n CLI
+5. Import each workflow using the n8n REST API
 6. Activate workflows that are marked as active in their JSON definition
 7. Provide a summary of the deployment
 
 ### Prerequisites
 
-- n8n CLI installed and accessible in your PATH
 - jq installed (for JSON parsing)
 - curl installed (for API calls)
 - n8n instance running on http://localhost:5678 (configurable in the script)
@@ -84,7 +83,7 @@ This script automates the deployment of all workflow JSON files to your n8n inst
 ### Usage
 
 ```bash
-# Set your n8n API key (optional, can also be hardcoded in the script)
+# Set your n8n API key (optional)
 export N8N_API_KEY="your-api-key"
 
 # Run the deployment script with confirmation prompt
@@ -92,11 +91,15 @@ export N8N_API_KEY="your-api-key"
 
 # Run the deployment script with automatic confirmation (useful for CI/CD)
 ./src/scripts/deploy_workflows.sh -y
+
+# Run the deployment script with API key specified in command line
+./src/scripts/deploy_workflows.sh -k "your-api-key"
 ```
 
 ### Command Line Options
 
 - `-y, --yes`: Automatically confirm overwriting workflows without prompting
+- `-k, --api-key`: Specify the n8n API key for authentication
 - `-h, --help`: Show help message
 
 ### Configuration
@@ -105,7 +108,7 @@ You can modify the following variables at the top of the script:
 
 - `N8N_URL`: The URL of your n8n instance (default: http://localhost:5678)
 - `WORKFLOWS_DIR`: The directory containing your workflow JSON files (default: src/workflows)
-- `API_KEY`: Your n8n API key (default: value of N8N_API_KEY environment variable or "your-api-key")
+- `API_KEY`: Your n8n API key (can be set via command line or environment variable)
 
 ### Workflow Requirements
 
@@ -115,14 +118,15 @@ For the script to work properly, each workflow JSON file should:
 2. Have a `name` field
 3. Have an `active` field set to `true` or `false`
 
-### Note on n8n CLI Commands
+### REST API vs CLI
 
-The script uses the current n8n CLI syntax:
-```bash
-n8n import:workflow --input="path/to/workflow.json" --separate
-```
+This script uses the n8n REST API instead of the CLI commands. Benefits include:
 
-If you encounter errors, make sure your n8n CLI version is up to date.
+1. Works with remote n8n instances (not just local)
+2. No need to install n8n CLI globally
+3. More reliable across different n8n versions
+4. Better error handling and feedback
+5. Can be used with authentication for secure environments
 
 ### Troubleshooting
 
@@ -132,7 +136,7 @@ If you encounter issues:
 2. Verify that your workflow JSON files are valid
 3. Check that you have the correct API key set
 4. Ensure you have the necessary permissions to import and activate workflows
-5. Verify your n8n CLI version with `n8n --version`
+5. Check the API response for detailed error messages
 
 ## export_workflows.sh
 
