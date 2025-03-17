@@ -1,68 +1,97 @@
-# AI Personal Assistant
+# Сказ о помощнике богатырском AI-Agent
 
-A personal assistant AI agent built with n8n and vector database technology, accessible via Telegram.
+> **[🐺 РУКОВОДСТВО ДЛЯ ДОБРЫХ МОЛОДЦЕВ И КРАСНЫХ ДЕВИЦ 🐺](./CONTRIBUTING_RU.md)**
+> 
+> **[📜 ПЛАН БОГАТЫРСКИЙ ДЛЯ СОЗИДАНИЯ 📜](./docs/planning/plan_bohatyrskiy.md)**
 
-## Overview
+## О чем сказ наш ведётся
 
-This project implements a personal assistant that can:
-- Respond to text and voice messages via Telegram
-- Use Retrieval-Augmented Generation (RAG) to provide personalized responses
-- Automate tasks through n8n workflows
-- Store and retrieve information using vector embeddings
+Во славном граде Гит-Хабском, на земле программистской, родился проект чудесный - помощник богатырский на основе разума искусственного. Не конь буланый, не меч-кладенец, а слуга цифровой, что дела вершит без устали и жалованья не просит.
 
-## Project Structure
+Сей помощник мудрый умеет сообщения разбирать, задания по категориям раскладывать да исполнять их по уму-разуму. Главная цель наша двоякая: и помощника полезного создать, и с технологиями новыми познакомиться, дабы прототип иметь для бесед с боярами-клиентами потенциальными.
+
+## Возможности богатырские
+
+- **Категоризация заданий** - разбирает сообщения текстовые и голосовые, аки мудрец древний
+- **Интеграция с Телеграмом** - шлёт вести быстрее сокола ясного
+- **Работа с n8n** - вершит дела по расписанию, аки часы вечные
+- **Retrieval-Augmented Generation (RAG)** - ответы даёт на основе знаний твоих личных, не хуже книги волшебной персональной
+
+## Как установить (аль призвать на службу)
+
+```bash
+# Клонируй репозиторий, словно свиток древний списываешь
+git clone https://github.com/yourusername/ai-agent-personal-assistant.git
+
+# Войди в палаты княжеские
+cd ai-agent-personal-assistant
+
+# Установи зависимости, аки припасы на зиму
+npm install n8n -g
+```
+
+## Как использовать (аль как слугу направлять)
+
+```bash
+# Настрой окружение для n8n
+mkdir -p ~/.n8n
+cp .env.example ~/.n8n/.env
+# Отредактируй ~/.n8n/.env по нуждам своим
+
+# Запусти n8n, словно коня в поле выпускаешь
+n8n start
+```
+
+## Структура проекта (аль где что лежит в тереме нашем)
 
 ```
 ai-agent-personal-assistant/
-├── planning/           # Project planning documents
-├── src/                # Source code
-│   ├── workflows/      # n8n workflow JSON files
-│   └── scripts/        # Helper scripts
-├── docs/               # Documentation
-└── tests/              # Test cases and testing utilities
+├── docs/                      # Свитки мудрости
+│   └── planning/              # Думы о будущем светлом, чертежи да планы
+├── src/                       # Код исходный (здесь волшба творится)
+│   ├── scripts/               # Заклинания для дел разных
+│   │   ├── n8n/               # Чары для работы с n8n
+│   │   └── telegram/          # Заклятья для связи с Телеграмом
+│   └── workflows/             # Процессы рабочие для n8n
+└── tests/                     # Испытания богатырские
 ```
 
-## Prerequisites
+## Технологии чудесные
 
-- Node.js (v14 or later)
-- npm or yarn
-- Git
-- Telegram account
-- Vector database (to be selected)
+- **Автоматизация процессов**: n8n (самохостинг)
+- **База данных векторная**: Будет выбрана из Pinecone, Weaviate, Qdrant или Chroma
+- **Интерфейс пользовательский**: Бот Телеграмский
+- **Модели языковые**: Интегрируются через рабочие процессы n8n
 
-## Setup
+## Принцип работы с процессами n8n
 
-1. Clone the repository
+Слушайте, добры молодцы, как мы с процессами n8n обращаемся:
+
+1. Создаём процессы рабочие (workflows) в виде кода JSON, аки свитки волшебные с заклинаниями
+2. Храним сии свитки в папке `src/workflows`, дабы всегда под рукой были
+3. Для переноса процессов из n8n в код и обратно используем скрипты волшебные из папки `src/scripts/n8n`:
    ```bash
-   git clone <repository-url>
-   cd ai-agent-personal-assistant
+   # Для экспорта процесса из n8n в файл JSON
+   node src/scripts/n8n/export-workflow.js workflow_id output_file.json
+   
+   # Для импорта процесса из файла JSON в n8n
+   node src/scripts/n8n/import-workflow.js input_file.json
    ```
+4. Сей подход позволяет:
+   - Хранить процессы в системе контроля версий, аки летописи царские
+   - Делиться процессами с товарищами, аки хлебом на пиру
+   - Восстанавливать процессы, коли беда случится, аки терем после пожара
 
-2. Install n8n globally
-   ```bash
-   npm install n8n -g
-   ```
+Помните, что всякий процесс сперва в коде создаётся с помощью моделей ИИ мудрых, аки волхвы древние, а потом лишь в n8n проверяется да улучшается при надобности.
 
-3. Configure n8n
-   ```bash
-   mkdir -p ~/.n8n
-   cp .env.example ~/.n8n/.env
-   # Edit ~/.n8n/.env with your configuration
-   ```
+## Как вклад внести (для смелых духом)
 
-4. Start n8n
-   ```bash
-   n8n start
-   ```
+Коли хочешь к дружине нашей примкнуть да код свой добавить, загляни в [РУКОВОДСТВО ДЛЯ СОЗИДАТЕЛЕЙ](./CONTRIBUTING_RU.md). Там всё расписано, как в летописи древней.
 
-5. Import workflows
-   - Open n8n UI at http://localhost:5678
-   - Import workflows from src/workflows directory
+## Лицензия
 
-## Development
+Проект сей защищён грамотой царской MIT, что позволяет тебе, добрый молодец аль красна девица, использовать код наш, аки меч булатный, для дел своих, не спрашивая дозволения особого.
 
-See the [project plan](planning/project_plan.md) for detailed development stages and tasks.
+---
 
-## License
-
-[MIT](LICENSE) 
+*Создано с любовью да умением в землях программистских. Да будет код твой чист, а баги редки!* 

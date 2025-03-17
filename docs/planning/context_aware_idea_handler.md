@@ -1,8 +1,8 @@
 # Context-Aware Idea Handler Design
 
-## Overview
+This document outlines the design for a context-aware idea handler that uses AI to analyze ideas in the context of existing data and provide intelligent responses.
 
-The Context-Aware Idea Handler is an enhanced version of the basic idea handler that adds contextual awareness to the processing of user ideas. It analyzes new ideas in relation to existing similar ideas and the user's personal context (such as calendar events) to provide more intelligent responses and suggestions.
+## Overview
 
 The context-aware idea handler enhances the basic idea saving functionality by:
 
@@ -11,14 +11,6 @@ The context-aware idea handler enhances the basic idea saving functionality by:
 3. Providing intelligent insights and suggestions
 4. Saving the enhanced idea with additional metadata
 5. Generating a rich, contextual response
-
-## Goals
-
-1. Enhance idea processing with contextual awareness
-2. Identify connections between new ideas and existing ones
-3. Relate ideas to upcoming events and meetings
-4. Provide intelligent suggestions for next steps
-5. Improve idea organization through context-based tagging
 
 ## Workflow Architecture
 
@@ -40,47 +32,37 @@ The context-aware idea handler enhances the basic idea saving functionality by:
 
 ## Key Components
 
-### 1. Data Ingestion
-- **Webhook Node**: Receives idea data from the task classifier
-- **Process Idea Data**: Extracts and formats the idea information
+### 1. Initial Processing
+
+- **Webhook**: Receives the idea data from the task classifier
+- **Process Idea Data**: Extracts and formats the basic idea information
 
 ### 2. Context Gathering
-- **Query Similar Ideas**: Retrieves similar ideas from the vector database
-- **Query Calendar Events**: Fetches upcoming calendar events
-- **Merge Context**: Combines all contextual information
 
-### 3. Contextual Analysis
-- **AI Agent: Context Analysis**: Analyzes the idea in relation to the gathered context
-- **Enhance Idea**: Enriches the idea with the AI analysis results
+- **Query Similar Ideas**: Searches the vector database for semantically similar ideas
+- **Query Calendar Events**: Retrieves upcoming calendar events
+- **Merge Context**: Combines all context data into a structured format
 
-### 4. Storage and Response
-- **Save to MongoDB**: Persists the enhanced idea
-- **Format Response**: Creates a user-friendly response with contextual insights
-- **Respond to Webhook**: Returns the response to the caller
+### 3. AI Analysis
 
-### 5. Additional Features
-- **Post-Processing**: Performs additional processing after saving
-- **Should Notify?**: Determines if a notification should be sent
-- **Send Notification**: Sends a follow-up notification if needed
-- **Log Similar Ideas**: Records similar ideas for debugging
+- **AI Agent Node**: Analyzes the idea in relation to the gathered context
+- Uses GPT-4o to provide intelligent insights
+- Generates suggestions, identifies duplicates, and recommends tags
+- Outputs structured analysis in JSON format
 
-## Implementation Details
+### 4. Enhanced Storage
 
-### Context Sources
+- **Enhance Idea**: Enriches the idea with AI analysis and additional metadata
+- **Save to MongoDB**: Stores the enhanced idea in the database
 
-1. **Vector Database**
-   - Stores embeddings of previous ideas
-   - Enables semantic similarity search
-   - Accessed via HTTP request to a local endpoint
+### 5. Response Generation
 
-2. **Calendar Integration**
-   - Retrieves upcoming events from Google Calendar
-   - Provides temporal context for ideas
-   - Requires Google API credentials
+- **Format Response**: Creates a rich, contextual response including insights and suggestions
+- **Respond to Webhook**: Returns the response to the calling workflow
 
-### AI Analysis
+## AI Agent Configuration
 
-The AI Agent node uses GPT-4o to analyze the idea in context with the following prompt structure:
+### System Prompt
 
 ```
 You are a context-aware personal assistant analyzing a new idea.
@@ -134,17 +116,7 @@ Format your response as JSON:
 }
 ```
 
-### Response Format
-
-The response to the user includes:
-- Confirmation of the saved idea
-- Analysis of the idea in context
-- Warning if the idea is similar to existing ones
-- Relevant upcoming events
-- Suggested next steps
-- Tags applied to the idea
-
-### Example Response
+## Example Response
 
 Instead of a simple confirmation, the assistant provides a rich, contextual response:
 
@@ -164,24 +136,6 @@ Suggested next steps:
 I've tagged this with: app, productivity, food, automation
 ```
 
-## Integration Points
-
-1. **Task Classifier Integration**
-   - The task classifier workflow sends idea data to this workflow
-   - Communication happens via webhook
-
-2. **Vector Database Integration**
-   - The workflow queries the vector database for similar ideas
-   - Requires a running vector database service
-
-3. **Google Calendar Integration**
-   - The workflow fetches calendar events
-   - Requires Google API credentials
-
-4. **MongoDB Integration**
-   - The workflow stores enhanced ideas in MongoDB
-   - Requires MongoDB credentials
-
 ## Benefits
 
 1. **Contextual Awareness**: Understands the idea in relation to existing knowledge
@@ -190,47 +144,34 @@ I've tagged this with: app, productivity, food, automation
 4. **Enhanced Organization**: Adds intelligent tags and connections
 5. **Time Efficiency**: Identifies duplicates and connections automatically
 
-## Implementation Considerations
+## Implementation Requirements
 
-1. **Privacy and Security**
-   - All personal data is processed locally
-   - API keys and credentials are stored securely in n8n
-   - No data is sent to external services except for AI processing
+1. **API Integrations**:
+   - Vector database for semantic search
+   - Calendar service (Google Calendar, etc.)
+   - MongoDB for storage
 
-2. **Performance**
-   - Vector database queries are limited to top 3 results
-   - Calendar queries are limited to events in the next 7 days
-   - AI processing may introduce latency
+2. **Credentials**:
+   - OpenAI API key
+   - MongoDB connection
+   - Calendar service credentials
 
-3. **Error Handling**
-   - Fallbacks for missing context sources
-   - Graceful handling of AI processing failures
-   - Default values for missing fields
+3. **Error Handling**:
+   - Fallbacks for unavailable services
+   - Graceful degradation when context can't be gathered
 
 ## Future Enhancements
 
-1. **Additional Context Sources**
-   - Integration with task management systems
-   - Contact information for relevant people
-   - Location-based context
+1. **Additional Context Sources**:
+   - Contacts database
+   - Task/project management systems
    - Email content
    - Notes and documents
 
-2. **Enhanced Analysis**
-   - More sophisticated duplicate detection
-   - Trend analysis across ideas
-   - Priority scoring based on context
-
-3. **User Feedback Loop**
-   - Capture user feedback on suggestions
-   - Improve analysis based on feedback
+2. **User Feedback Loop**:
+   - Allow users to rate the quality of insights
    - Learn from user corrections and preferences
 
-4. **Proactive Notifications**
-   - Send reminders about ideas before relevant events
-   - Suggest revisiting ideas based on new context
+3. **Proactive Follow-ups**:
    - Schedule reminders about ideas
-
-## Conclusion
-
-The Context-Aware Idea Handler represents a significant enhancement to the basic idea handling capability. By incorporating contextual awareness, it provides more intelligent and personalized responses to user ideas, helping to connect ideas to existing knowledge and upcoming events, and suggesting meaningful next steps. 
+   - Suggest revisiting ideas after relevant events 
