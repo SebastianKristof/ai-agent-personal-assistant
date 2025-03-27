@@ -104,7 +104,8 @@ Detailed setup instructions for both options will be provided in separate docume
 
 After completing the setup:
 
-1. Create your first n8n workflow
+1. Create your first n8n workflow (see [workflows.md](workflows.md) for detailed instructions)
 2. Test the Telegram bot integration
 3. Set up your chosen vector database
-4. Develop your first RAG workflow 
+4. Develop your first RAG workflow
+5. Learn how to deploy workflows using our deployment script (see [workflows.md](workflows.md#deploying-workflows)) 

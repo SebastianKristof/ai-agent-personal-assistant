@@ -5,7 +5,7 @@ This directory contains documentation for the AI Personal Assistant project.
 ## Documentation Structure
 
 - `setup.md` - Detailed setup instructions
-- `workflows.md` - Documentation for n8n workflows
+- `workflows.md` - Documentation for n8n workflows and deployment ✅
 - `vector-database.md` - Vector database setup and management
 - `telegram-bot.md` - Telegram bot setup and configuration
 - `development.md` - Development guidelines and best practices
