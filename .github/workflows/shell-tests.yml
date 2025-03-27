@@ -1,0 +1,26 @@
+name: Shell Script Tests
+
+on:
+  push:
+    paths:
+      - 'src/scripts/**'
+      - 'test/**'
+  pull_request:
+    paths:
+      - 'src/scripts/**'
+      - 'test/**'
+
+jobs:
+  bats-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Bats
+        run: |
+          npm install -g bats
+          bats --version
+
+      - name: Run Bats tests
+        run: |
+          bats test/*.bats 
