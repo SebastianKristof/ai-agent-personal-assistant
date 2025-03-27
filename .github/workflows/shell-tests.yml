@@ -18,9 +18,13 @@ jobs:
 
       - name: Install Bats
         run: |
-          npm install -g bats
-          bats --version
+          # Install Bats properly in GitHub Actions
+          git clone https://github.com/bats-core/bats-core.git
+          cd bats-core
+          ./install.sh $HOME
+          echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Run Bats tests
         run: |
+          bats --version
           bats test/*.bats 
