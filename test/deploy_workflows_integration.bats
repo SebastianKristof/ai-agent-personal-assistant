@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 
-# Load common mocks
-load "mocks"
+# Load common mocks - change from "load" to "source" for the file with extension
+# (Bats expects either a file with no extension in its load path, or a file with .bash extension)
+source "$(dirname "$BATS_TEST_FILENAME")/mocks.sh"
 
 setup() {
   # Create a temporary directory for test files
