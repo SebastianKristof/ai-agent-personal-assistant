@@ -115,7 +115,6 @@ def sanitize_filename(text):
     """Sanitize text for use in filenames:
     - Remove invalid characters and all punctuation
     - Replace spaces with underscores
-    - Limit length to 20 characters (for title) or 10 characters (for channel name)
     """
     # First, remove any characters not allowed in filenames and all punctuation
     sanitized = re.sub(r'[^\w\s]', '', text)
@@ -141,8 +140,8 @@ def download_transcript(url, output_dir):
         print(f"Channel: {channel_name}")
         
         # Create sanitized filename components with length limits
-        safe_title = sanitize_filename(video_title)[:20]
-        safe_channel = sanitize_filename(channel_name)[:10]
+        safe_title = sanitize_filename(video_title)[:40]
+        safe_channel = sanitize_filename(channel_name)[:20]
         
         # Include channel name in filename
         filename = f"{safe_channel}-{safe_title}_{video_id}.txt"

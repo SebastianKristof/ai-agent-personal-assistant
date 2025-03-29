@@ -25,4 +25,4 @@ python3 yt-transcripts-download.py https://www.youtube.com/playlist?list=PLAYLIS
 1. Create `video_urls.txt` with one URL per line (can be videos or playlists)
 2. Run `python3 yt-transcripts-download.py`
 
-Transcripts are saved in the `transcripts` folder with concise filenames formatted as `ChannelName-VideoTitle_VideoID.txt`. Channel names are limited to 10 characters and video titles to 20 characters, with spaces replaced by underscores. 
+Transcripts are saved in the `transcripts` folder with concise filenames formatted as `ChannelName-VideoTitle_VideoID.txt`. Channel names are limited to 20 characters and video titles to 40 characters, with spaces replaced by underscores. 
