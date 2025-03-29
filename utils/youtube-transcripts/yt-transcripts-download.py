@@ -6,6 +6,7 @@ import re
 import sys
 import time
 import random
+import argparse
 
 def get_video_id(url):
     """Extracts the YouTube video ID from URL."""
@@ -125,7 +126,7 @@ def sanitize_filename(text):
     # Trim to reasonable length (caller will decide whether to use short or long version)
     return sanitized.strip()
 
-def download_transcript(url, output_dir):
+def download_transcript(url, output_dir, combined_file=None):
     """Downloads transcript for a single YouTube video URL."""
     try:
         video_id = get_video_id(url)
@@ -147,7 +148,7 @@ def download_transcript(url, output_dir):
         filename = f"{safe_channel}-{safe_title}_{video_id}.txt"
         
         output_path = os.path.join(output_dir, filename)
-        if os.path.exists(output_path):
+        if os.path.exists(output_path) and combined_file is None:
             print(f"Transcript for '{video_title}' already exists. Skipping download.")
             return
         
@@ -155,35 +156,54 @@ def download_transcript(url, output_dir):
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
         full_text = ' '.join(segment['text'] for segment in transcript)
 
-        with open(output_path, 'w', encoding='utf-8') as outfile:
-            outfile.write(f"Channel: {channel_name}\n")
-            outfile.write(f"Title: {video_title}\n")
-            outfile.write(f"Source URL: {url}\n\n")
-            outfile.write(full_text)
-
-        print(f"Transcript saved to {output_path}")
+        # If we're combining transcripts into one file
+        if combined_file is not None:
+            with open(combined_file, 'a', encoding='utf-8') as outfile:
+                outfile.write(f"\n\n{'='*80}\n")
+                outfile.write(f"Channel: {channel_name}\n")
+                outfile.write(f"Title: {video_title}\n")
+                outfile.write(f"Source URL: {url}\n")
+                outfile.write(f"{'='*80}\n\n")
+                outfile.write(full_text)
+            print(f"Transcript appended to {combined_file}")
+        else:
+            # Normal mode - save individual files
+            with open(output_path, 'w', encoding='utf-8') as outfile:
+                outfile.write(f"Channel: {channel_name}\n")
+                outfile.write(f"Title: {video_title}\n")
+                outfile.write(f"Source URL: {url}\n\n")
+                outfile.write(full_text)
+            print(f"Transcript saved to {output_path}")
         
     except Exception as e:
         print(f"Failed to get transcript for {url}: {e}")
 
-def download_transcripts(input_file='video_urls.txt', output_dir='transcripts'):
+def download_transcripts(input_file='video_urls.txt', output_dir='transcripts', combined_output=None):
     """Downloads transcripts from YouTube URLs listed in input_file."""
     os.makedirs(output_dir, exist_ok=True)
 
-    # Check if a direct URL was provided as a command line argument
-    if len(sys.argv) > 1 and (sys.argv[1].startswith("http://") or sys.argv[1].startswith("https://")):
+    # If using combined output, create/clear the file
+    if combined_output is not None:
+        combined_file_path = os.path.join(output_dir, combined_output)
+        with open(combined_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"COMBINED YOUTUBE TRANSCRIPTS\n{'='*80}\n\n")
+    else:
+        combined_file_path = None
+
+    # Process command line URL argument if provided
+    if len(sys.argv) > 1 and sys.argv[1].startswith("http"):
         url = sys.argv[1]
         if is_playlist_url(url):
             playlist_id = get_playlist_id(url)
             videos = get_videos_from_playlist(playlist_id)
             for i, video_url in enumerate(videos):
-                download_transcript(video_url, output_dir)
+                download_transcript(video_url, output_dir, combined_file_path)
                 if i < len(videos) - 1:  # If not the last video
                     delay = random.uniform(1.5, 3.5)
                     print(f"Waiting {delay:.2f} seconds before processing next video...")
                     time.sleep(delay)
         else:
-            download_transcript(url, output_dir)
+            download_transcript(url, output_dir, combined_file_path)
         return
 
     # Process URLs from input file
@@ -195,13 +215,13 @@ def download_transcripts(input_file='video_urls.txt', output_dir='transcripts'):
             playlist_id = get_playlist_id(url)
             videos = get_videos_from_playlist(playlist_id)
             for j, video_url in enumerate(videos):
-                download_transcript(video_url, output_dir)
+                download_transcript(video_url, output_dir, combined_file_path)
                 if j < len(videos) - 1:  # If not the last video in playlist
                     delay = random.uniform(1.5, 3.5)
                     print(f"Waiting {delay:.2f} seconds before processing next video...")
                     time.sleep(delay)
         else:
-            download_transcript(url, output_dir)
+            download_transcript(url, output_dir, combined_file_path)
         
         # Add delay between URLs in the input file (if not the last URL)
         if i < len(urls) - 1:
@@ -210,4 +230,23 @@ def download_transcripts(input_file='video_urls.txt', output_dir='transcripts'):
             time.sleep(delay)
 
 if __name__ == "__main__":
-    download_transcripts()
+    parser = argparse.ArgumentParser(description="Download YouTube video transcripts")
+    parser.add_argument("url", nargs="?", help="YouTube video or playlist URL (optional)")
+    parser.add_argument("-i", "--input", default="video_urls.txt", 
+                      help="Input file with YouTube URLs (default: video_urls.txt)")
+    parser.add_argument("-o", "--output-dir", default="transcripts", 
+                      help="Output directory for transcripts (default: transcripts)")
+    parser.add_argument("-c", "--combine", metavar="FILENAME", 
+                      help="Combine all transcripts into a single file with the specified name")
+    
+    args = parser.parse_args()
+    
+    # If URL is provided as positional arg, replace sys.argv[1] to maintain compatibility
+    if args.url and len(sys.argv) > 1:
+        sys.argv[1] = args.url
+    
+    download_transcripts(
+        input_file=args.input, 
+        output_dir=args.output_dir,
+        combined_output=args.combine
+    )
