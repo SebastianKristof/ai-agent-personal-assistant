@@ -1,6 +1,6 @@
 #!/bin/bash
 # export_workflows.sh
-# Script to export all n8n workflows to JSON files
+# Script to export all n8n workflows to JSON files or a single workflow by ID
 # This helps keep your workflow files in sync with changes made in the UI
 
 # Set variables
@@ -9,6 +9,8 @@ WORKFLOWS_DIR="$(dirname "$(dirname "$(realpath "$0")")")/workflows"
 API_KEY="${N8N_API_KEY:-your-api-key}" # Use environment variable or default
 BACKUP_DIR="$WORKFLOWS_DIR/backups/$(date +%Y%m%d_%H%M%S)"
 AUTO_CONFIRM=false
+WORKFLOW_ID=""
+OUTPUT_FILE=""
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -22,6 +24,8 @@ parse_args() {
     case $1 in
       -y|--yes) AUTO_CONFIRM=true ;;
       -h|--help) show_help; exit 0 ;;
+      -i|--id) WORKFLOW_ID="$2"; shift ;;
+      -o|--output) OUTPUT_FILE="$2"; shift ;;
       *) echo "Unknown parameter: $1"; show_help; exit 1 ;;
     esac
     shift
@@ -33,11 +37,17 @@ show_help() {
   echo "Usage: $0 [options]"
   echo ""
   echo "Options:"
-  echo "  -y, --yes    Automatically confirm overwriting workflow files"
-  echo "  -h, --help   Show this help message"
+  echo "  -y, --yes       Automatically confirm overwriting workflow files"
+  echo "  -i, --id ID     Export only the workflow with the specified ID"
+  echo "  -o, --output    Output file (used with -i option, defaults to ID.json)"
+  echo "  -h, --help      Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  $0              Export all workflows"
+  echo "  $0 -i abc123    Export only workflow with ID abc123"
   echo ""
   echo "Environment variables:"
-  echo "  N8N_API_KEY  API key for n8n (optional)"
+  echo "  N8N_API_KEY     API key for n8n (optional)"
 }
 
 # Function to check dependencies
@@ -96,7 +106,20 @@ get_confirmation() {
     return 0
   fi
   
-  if [ -d "$WORKFLOWS_DIR" ] && [ "$(ls -A "$WORKFLOWS_DIR"/*.json 2>/dev/null)" ]; then
+  # For single workflow export with specified output file
+  if [ -n "$WORKFLOW_ID" ] && [ -n "$OUTPUT_FILE" ] && [ -f "$OUTPUT_FILE" ]; then
+    echo -e "${YELLOW}WARNING: This will overwrite existing file: $OUTPUT_FILE${NC}"
+    echo -e "${YELLOW}Do you want to continue? (y/N)${NC}"
+    
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+      return 0
+    else
+      echo -e "${YELLOW}Export cancelled.${NC}"
+      return 1
+    fi
+  # For all workflows export or single workflow without specific output file
+  elif [ -d "$WORKFLOWS_DIR" ] && [ "$(ls -A "$WORKFLOWS_DIR"/*.json 2>/dev/null)" ]; then
     echo -e "${YELLOW}WARNING: This will overwrite existing workflow files in $WORKFLOWS_DIR${NC}"
     echo -e "${YELLOW}A backup will be created in $BACKUP_DIR${NC}"
     echo -e "${YELLOW}Do you want to continue? (y/N)${NC}"
@@ -148,6 +171,42 @@ get_all_workflows() {
   
   echo -e "${GREEN}Found $workflow_count workflows in n8n.${NC}"
   echo "$response" | jq '.data'
+  return 0
+}
+
+# Function to get a specific workflow by ID
+get_workflow_by_id() {
+  local id=$1
+  echo -e "${YELLOW}Fetching workflow with ID: $id${NC}"
+  
+  local response=$(curl -s -X GET "$N8N_URL/rest/workflows/$id" \
+    -H "X-N8N-API-KEY: $API_KEY")
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to fetch workflow from n8n.${NC}"
+    return 1
+  fi
+  
+  # Check for authentication error
+  if [[ "$response" == *"\"status\":\"error\""* ]] && [[ "$response" == *"\"message\":\"Unauthorized\""* ]]; then
+    echo -e "${RED}Authentication error: Unauthorized access to n8n API${NC}"
+    echo -e "${YELLOW}Please create an API key in n8n:${NC}"
+    echo -e "  1. Open n8n interface (${N8N_URL})"
+    echo -e "  2. Go to Settings → API"
+    echo -e "  3. Create a new API key"
+    echo -e "  4. Run this script with the API key in the environment variable:${NC}"
+    echo -e "     export N8N_API_KEY=\"your-api-key\""
+    echo -e "     $0 -i $id"
+    return 1
+  fi
+  
+  # Check if the workflow was found
+  if [[ "$response" == *"\"error\":\"Workflow with ID"* ]]; then
+    echo -e "${RED}Error: Workflow with ID $id not found.${NC}"
+    return 1
+  fi
+  
+  echo "$response"
   return 0
 }
 
@@ -227,6 +286,43 @@ sanitize_filename() {
   echo "$name" | tr -s ' ' | tr ' ' '_' | tr -cd '[:alnum:]_-.' | tr '[:upper:]' '[:lower:]'
 }
 
+# Function to export a single workflow by ID
+export_single_workflow() {
+  local id=$1
+  local output=$2
+  
+  # Fetch the workflow
+  local workflow_json=$(get_workflow_by_id "$id")
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to get workflow with ID: $id. Exiting.${NC}"
+    exit 1
+  fi
+  
+  # Extract workflow name
+  local workflow_name=$(echo "$workflow_json" | jq -r '.name')
+  
+  # Determine output file
+  if [ -z "$output" ]; then
+    # No output file specified, use sanitized name in workflows directory
+    local sanitized_name=$(sanitize_filename "$workflow_name")
+    output="$WORKFLOWS_DIR/${sanitized_name}.json"
+  fi
+  
+  # Create directory if it doesn't exist
+  mkdir -p "$(dirname "$output")"
+  
+  # Save the workflow data to file
+  echo "$workflow_json" | jq '.' > "$output"
+  
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Successfully exported workflow \"$workflow_name\" to: $output${NC}"
+    return 0
+  else
+    echo -e "${RED}Failed to save workflow to: $output${NC}"
+    return 1
+  fi
+}
+
 # Main script execution
 main() {
   echo -e "${GREEN}=== n8n Workflow Export Script ===${NC}"
@@ -239,6 +335,29 @@ main() {
   
   # Check if n8n is running
   check_n8n_running || exit 1
+  
+  # Handle single workflow export if ID is provided
+  if [ -n "$WORKFLOW_ID" ]; then
+    echo -e "${YELLOW}Exporting single workflow with ID: $WORKFLOW_ID${NC}"
+    
+    # Get confirmation before proceeding if output file exists
+    get_confirmation || exit 0
+    
+    # Export the workflow
+    export_single_workflow "$WORKFLOW_ID" "$OUTPUT_FILE"
+    
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}=== Export Summary ===${NC}"
+      echo -e "${GREEN}Successfully exported workflow with ID: $WORKFLOW_ID${NC}"
+    else
+      echo -e "${RED}Failed to export workflow with ID: $WORKFLOW_ID${NC}"
+      exit 1
+    fi
+    
+    exit 0
+  fi
+  
+  # Export all workflows
   
   # Create workflows directory if it doesn't exist
   mkdir -p "$WORKFLOWS_DIR"

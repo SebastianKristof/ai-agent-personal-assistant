@@ -7,6 +7,7 @@ import sys
 import time
 import random
 import argparse
+from pathlib import Path
 
 def get_video_id(url):
     """Extracts the YouTube video ID from URL."""
@@ -147,7 +148,7 @@ def download_transcript(url, output_dir, combined_file=None):
         # Include channel name in filename
         filename = f"{safe_channel}-{safe_title}_{video_id}.txt"
         
-        output_path = os.path.join(output_dir, filename)
+        output_path = output_dir / filename
         if os.path.exists(output_path) and combined_file is None:
             print(f"Transcript for '{video_title}' already exists. Skipping download.")
             return
@@ -180,11 +181,20 @@ def download_transcript(url, output_dir, combined_file=None):
 
 def download_transcripts(input_file='video_urls.txt', output_dir='transcripts', combined_output=None):
     """Downloads transcripts from YouTube URLs listed in input_file."""
-    os.makedirs(output_dir, exist_ok=True)
+    # Get the directory where the script is located
+    script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Create output directory relative to script location
+    output_path = script_dir / output_dir
+    output_path.mkdir(exist_ok=True)
+    
+    # If input file is a relative path, make it relative to script location
+    if not os.path.isabs(input_file):
+        input_file = script_dir / input_file
 
     # If using combined output, create/clear the file
     if combined_output is not None:
-        combined_file_path = os.path.join(output_dir, combined_output)
+        combined_file_path = output_path / combined_output
         with open(combined_file_path, 'w', encoding='utf-8') as f:
             f.write(f"COMBINED YOUTUBE TRANSCRIPTS\n{'='*80}\n\n")
     else:
@@ -197,13 +207,13 @@ def download_transcripts(input_file='video_urls.txt', output_dir='transcripts', 
             playlist_id = get_playlist_id(url)
             videos = get_videos_from_playlist(playlist_id)
             for i, video_url in enumerate(videos):
-                download_transcript(video_url, output_dir, combined_file_path)
+                download_transcript(video_url, output_path, combined_file_path)
                 if i < len(videos) - 1:  # If not the last video
                     delay = random.uniform(1.5, 3.5)
                     print(f"Waiting {delay:.2f} seconds before processing next video...")
                     time.sleep(delay)
         else:
-            download_transcript(url, output_dir, combined_file_path)
+            download_transcript(url, output_path, combined_file_path)
         return
 
     # Process URLs from input file
@@ -215,13 +225,13 @@ def download_transcripts(input_file='video_urls.txt', output_dir='transcripts', 
             playlist_id = get_playlist_id(url)
             videos = get_videos_from_playlist(playlist_id)
             for j, video_url in enumerate(videos):
-                download_transcript(video_url, output_dir, combined_file_path)
+                download_transcript(video_url, output_path, combined_file_path)
                 if j < len(videos) - 1:  # If not the last video in playlist
                     delay = random.uniform(1.5, 3.5)
                     print(f"Waiting {delay:.2f} seconds before processing next video...")
                     time.sleep(delay)
         else:
-            download_transcript(url, output_dir, combined_file_path)
+            download_transcript(url, output_path, combined_file_path)
         
         # Add delay between URLs in the input file (if not the last URL)
         if i < len(urls) - 1:

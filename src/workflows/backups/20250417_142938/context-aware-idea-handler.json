@@ -1,0 +1,472 @@
+{
+  "name": "Context-Aware Idea Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook/idea-handler",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "idea-handler"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract task data from the webhook payload\nconst taskData = $input.item.json.task_data;\n\nif (!taskData) {\n  throw new Error('Missing task_data in webhook payload');\n}\n\n// Extract content from the task data\nlet content = taskData.content || '';\nif (!content && taskData.original_message) {\n  content = taskData.original_message;\n}\n\n// Generate tags if not provided\nlet tags = taskData.tags || [];\nif (tags.length === 0 && taskData.category) {\n  tags.push(taskData.category);\n}\n\n// Generate a unique ID for the idea\nconst timestamp = Math.floor(Date.now() / 1000);\nconst id = `idea_${timestamp}`;\n\n// Create the idea object\nconst idea = {\n  id,\n  content,\n  tags,\n  timestamp: new Date().toISOString(),\n  source: 'telegram',\n  user_id: taskData.user_id || '',\n  username: taskData.username || '',\n  original_message: taskData.original_message || ''\n};\n\n// Add any additional fields from the task data\nfor (const [key, value] of Object.entries(taskData)) {\n  if (!(key in idea) && !['task_type', 'task_data'].includes(key)) {\n    idea[key] = value;\n  }\n}\n\nreturn { json: idea };"
+      },
+      "name": "Process Idea Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8001/query",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "name": "limit",
+              "value": 3
+            },
+            {
+              "name": "namespace",
+              "value": "ideas"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Query Similar Ideas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        740,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "operation": "get",
+        "calendarId": "primary",
+        "options": {
+          "timeMin": "={{ $today }}",
+          "timeMax": "={{ $today + 7*24*60*60*1000 }}",
+          "maxResults": 5
+        }
+      },
+      "name": "Query Calendar Events",
+      "type": "n8n-nodes-base.google",
+      "typeVersion": 1,
+      "position": [
+        740,
+        400
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "1",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Combine all context into a single object\nconst similarIdeas = $node[\"Query Similar Ideas\"].json.results || [];\nconst upcomingEvents = $node[\"Query Calendar Events\"].json.items || [];\n\nreturn {\n  json: {\n    ...$input.item.json,\n    context: {\n      similar_ideas: similarIdeas,\n      upcoming_events: upcomingEvents\n    }\n  }\n};"
+      },
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "provider": "openAi",
+        "chatModel": "gpt-4o",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a context-aware personal assistant analyzing a new idea.\nAnalyze the new idea in relation to existing similar ideas and upcoming calendar events.\nProvide insights on:\n1. Whether this idea is novel or similar to existing ones\n2. Potential connections to upcoming meetings or events\n3. Suggestions for next steps or improvements\n4. Recommended tags based on content and context\n\nFormat your response as JSON:\n{\n  \"analysis\": \"Your detailed analysis here\",\n  \"is_duplicate\": boolean,\n  \"related_ideas\": [\"List of related idea IDs\"],\n  \"relevant_events\": [\"List of relevant event IDs\"],\n  \"suggested_tags\": [\"tag1\", \"tag2\"],\n  \"next_steps\": [\"Suggested action 1\", \"Suggested action 2\"],\n  \"enhanced_content\": \"Improved version of the idea with context\"\n}"
+            },
+            {
+              "role": "user",
+              "content": "={\n  \"new_idea\": \"{{ $json.content }}\",\n  \"similar_ideas\": {{ $json.context.similar_ideas | json }},\n  \"upcoming_events\": {{ $json.context.upcoming_events | json }}\n}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      },
+      "name": "AI Agent: Context Analysis",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "2",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract the AI analysis\nconst aiResponse = $input.item.json.response;\nlet aiAnalysis;\n\ntry {\n  // If the response is already parsed JSON\n  if (typeof aiResponse === 'object') {\n    aiAnalysis = aiResponse;\n  } else {\n    // If it's a string that needs parsing\n    aiAnalysis = JSON.parse(aiResponse);\n  }\n} catch (error) {\n  // Fallback if parsing fails\n  aiAnalysis = {\n    analysis: \"Unable to analyze the idea in context.\",\n    is_duplicate: false,\n    related_ideas: [],\n    relevant_events: [],\n    suggested_tags: [],\n    next_steps: [],\n    enhanced_content: $input.item.json.content\n  };\n}\n\n// Enhance the idea with AI analysis\nconst enhancedIdea = {\n  ...$input.item.json,\n  tags: [...new Set([...$input.item.json.tags, ...aiAnalysis.suggested_tags])], // Combine tags, remove duplicates\n  is_duplicate: aiAnalysis.is_duplicate,\n  related_ideas: aiAnalysis.related_ideas,\n  relevant_events: aiAnalysis.relevant_events,\n  enhanced_content: aiAnalysis.enhanced_content,\n  ai_analysis: aiAnalysis\n};\n\nreturn { json: enhancedIdea };"
+      },
+      "name": "Enhance Idea",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "collection": "ideas",
+        "options": {}
+      },
+      "name": "Save to MongoDB",
+      "type": "n8n-nodes-base.mongodb",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "1",
+          "name": "MongoDB Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "name": "tags",
+              "value": "={{ $json.tags }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "response",
+              "value": "=I've saved your idea: \"{{ $json.content }}\"\n\n{{ $json.ai_analysis.analysis }}\n\n{% if $json.ai_analysis.is_duplicate %}\nThis seems similar to ideas you've had before. Consider reviewing those first.\n{% endif %}\n\n{% if $json.ai_analysis.relevant_events.length > 0 %}\nThis might be relevant to your upcoming events:\n{% for event in $json.ai_analysis.relevant_events %}\n- {{ event.summary }} on {{ event.start.dateTime | formatDate }}\n{% endfor %}\n{% endif %}\n\n{% if $json.ai_analysis.next_steps.length > 0 %}\nSuggested next steps:\n{% for step in $json.ai_analysis.next_steps %}\n- {{ step }}\n{% endfor %}\n{% endif %}\n\nI've tagged this with: {{ $json.tags.join(', ') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.should_notify }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.user_id }}",
+        "text": "=I've analyzed your idea \"{{ $json.content }}\" in more depth!\n\n{{ $json.ai_analysis.analysis | slice(0, 200) }}...\n\nCheck your chat history for the full analysis.",
+        "additionalFields": {}
+      },
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        460
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log the saved idea\nconsole.log(`Saved idea with context: ${$input.item.json.id}`);\n\n// Add a flag to determine if notification should be sent\n// This is just an example - you can customize this logic\nconst shouldNotify = false; // Set to true if you want to send notifications\n\nreturn {\n  json: {\n    ...$input.item.json,\n    should_notify: shouldNotify\n  }\n};"
+      },
+      "name": "Post-Processing",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Object.keys($json.context.similar_ideas).length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Has Similar Ideas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        940,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "content": "=## Similar Ideas Found\n\n{% for idea in $json.context.similar_ideas %}\n- **{{ idea.content | slice(0, 50) }}...** ({{ idea.id }})\n  - Tags: {{ idea.tags.join(', ') }}\n  - Created: {{ idea.timestamp | formatDate }}\n{% endfor %}",
+        "options": {}
+      },
+      "name": "Log Similar Ideas",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        460
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Idea Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Idea Data": {
+      "main": [
+        [
+          {
+            "node": "Query Similar Ideas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query Calendar Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Similar Ideas": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Calendar Events": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Context Analysis",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Similar Ideas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Context Analysis": {
+      "main": [
+        [
+          {
+            "node": "Enhance Idea",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhance Idea": {
+      "main": [
+        [
+          {
+            "node": "Save to MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post-Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Processing": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Has Similar Ideas?": {
+      "main": [
+        [
+          {
+            "node": "Log Similar Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "5",
+  "meta": {
+    "instanceId": "1"
+  },
+  "tags": [
+    {
+      "name": "handler",
+      "color": "#00bb9c"
+    },
+    {
+      "name": "idea",
+      "color": "#ff6d33"
+    },
+    {
+      "name": "context-aware",
+      "color": "#5500ff"
+    }
+  ]
+} 
