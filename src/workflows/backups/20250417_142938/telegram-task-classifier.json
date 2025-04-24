@@ -1,0 +1,519 @@
+{
+  "name": "Telegram Task Classifier",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "resource": "message",
+        "updateMode": "polling",
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        340,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json[\"message\"][\"text\"] }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Has Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "I can only respond to text messages. Please send me a text message."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        740,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json[\"message\"][\"chat\"][\"id\"] }}",
+        "text": "={{ $json.response }}",
+        "additionalFields": {}
+      },
+      "name": "Send Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "provider": "openAi",
+        "chatModel": "gpt-4o",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a task classifier for a personal assistant system. Your job is to analyze the user's message and determine what type of task it is.\n\nTask types:\n- idea: User is sharing an idea, thought, or something to remember\n- research: User wants information or research on a topic\n- task: User wants to create a task or reminder\n- chat: General conversation or questions\n\nRespond with a JSON object containing:\n- task_type: The type of task (one of the above)\n- confidence: Your confidence in the classification (0-1)\n- category: A short category label for the task (e.g., \"work\", \"personal\", \"health\")\n- tags: An array of relevant tags\n- content: A cleaned/formatted version of the user's message if needed\n\nExample response:\n{\n  \"task_type\": \"idea\",\n  \"confidence\": 0.95,\n  \"category\": \"business\",\n  \"tags\": [\"startup\", \"product\"],\n  \"content\": \"Create a mobile app for tracking daily habits\"\n}"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.message.text }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      },
+      "name": "Classify Task",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [
+        740,
+        200
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "1",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse the AI response\nlet classification;\ntry {\n  // If the response is already parsed JSON\n  if (typeof $input.item.json.response === 'object') {\n    classification = $input.item.json.response;\n  } else {\n    // If it's a string that needs parsing\n    classification = JSON.parse($input.item.json.response);\n  }\n} catch (error) {\n  // Default classification if parsing fails\n  classification = {\n    task_type: 'chat',\n    confidence: 0.5,\n    category: 'general',\n    tags: ['unclassified'],\n    content: $input.item.json.message.text\n  };\n}\n\n// Add original message and user info\nconst taskData = {\n  ...classification,\n  original_message: $input.item.json.message.text,\n  user_id: $input.item.json.message.chat.id.toString(),\n  username: $input.item.json.message.from.username || $input.item.json.message.from.first_name\n};\n\nreturn {\n  json: {\n    task_type: classification.task_type,\n    task_data: taskData\n  }\n};"
+      },
+      "name": "Process Classification",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        940,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.task_type }}",
+              "operation": "equals",
+              "value2": "idea"
+            }
+          ]
+        }
+      },
+      "name": "Is Idea?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:5678/webhook/idea-handler",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task_data",
+              "value": "={{ $json.task_data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Call Context-Aware Idea Handler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "={{ $json.response }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Extract Idea Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.task_type }}",
+              "operation": "equals",
+              "value2": "research"
+            }
+          ]
+        }
+      },
+      "name": "Is Research?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "I'll research that for you! (Research handler not implemented yet)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Research Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.task_type }}",
+              "operation": "equals",
+              "value2": "task"
+            }
+          ]
+        }
+      },
+      "name": "Is Task?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "I'll add that to your tasks! (Task handler not implemented yet)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Task Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "response",
+              "value": "I'm not sure how to handle that request. I can save ideas, answer questions, or create tasks."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Default Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json[\"message\"][\"chat\"][\"id\"] }}",
+        "text": "Thinking...",
+        "additionalFields": {}
+      },
+      "name": "Send Typing Indicator",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        740,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "1",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Has Text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Text?": {
+      "main": [
+        [
+          {
+            "node": "Classify Task",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Typing Indicator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Task": {
+      "main": [
+        [
+          {
+            "node": "Process Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Classification": {
+      "main": [
+        [
+          {
+            "node": "Is Idea?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Idea?": {
+      "main": [
+        [
+          {
+            "node": "Call Context-Aware Idea Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Research?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Context-Aware Idea Handler": {
+      "main": [
+        [
+          {
+            "node": "Extract Idea Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Idea Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Research?": {
+      "main": [
+        [
+          {
+            "node": "Set Research Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Task?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Research Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Task?": {
+      "main": [
+        [
+          {
+            "node": "Set Task Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Default Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Task Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Default Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Typing Indicator": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "1",
+  "meta": {
+    "instanceId": "1"
+  },
+  "tags": [
+    {
+      "name": "telegram",
+      "color": "#00ff00"
+    },
+    {
+      "name": "classifier",
+      "color": "#ff0000"
+    }
+  ]
+} 
